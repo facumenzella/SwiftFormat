@@ -186,7 +186,7 @@ extension Formatter {
         while var prevIndex = self.index(of: .nonSpaceOrCommentOrLinebreak, before: index) {
             let token = tokens[prevIndex]
             switch token {
-            case let .keyword(name), let .identifier(name):
+            case let .identifier(name), let .keyword(name):
                 if !allModifiers.contains(name), !name.hasPrefix("@") {
                     return false
                 }
@@ -269,7 +269,7 @@ extension Formatter {
                             index = endIndex
                         }
                         continue
-                    case .keyword, .startOfScope("{"), .endOfScope("}"), .startOfScope(":"):
+                    case .endOfScope("}"), .keyword, .startOfScope("{"), .startOfScope(":"):
                         return
                     case .endOfScope(")"):
                         let scopeIndex = scopeIndexStack.popLast() ?? -1
@@ -341,13 +341,13 @@ extension Formatter {
             return true
         }
         switch tokens[prevIndex] {
-        case .startOfScope("("), .startOfScope("["), .startOfScope("{"),
-             .operator(_, .infix), .operator(_, .prefix), .delimiter,
-             .keyword("return"), .keyword("in"), .keyword("where"):
+        case .delimiter, .keyword("return"), .keyword("in"),
+             .keyword("where"), .operator(_, .infix), .operator(_, .prefix),
+             .startOfScope("("), .startOfScope("["), .startOfScope("{"):
             return true
-        case .operator(_, .none),
-             .keyword("deinit"), .keyword("catch"), .keyword("else"),
-             .keyword("repeat"), .keyword("throws"), .keyword("rethrows"):
+        case .keyword("deinit"),
+             .keyword("catch"), .keyword("else"), .keyword("repeat"),
+             .keyword("throws"), .keyword("rethrows"), .operator(_, .none):
             return false
         case .endOfScope("}"):
             guard let startOfScope = index(of: .startOfScope("{"), before: prevIndex) else {
@@ -376,8 +376,8 @@ extension Formatter {
                 default:
                     return true
                 }
-            case .operator("->", .infix), .keyword("init"),
-                 .keyword("subscript"), .endOfScope(">"):
+            case .endOfScope(">"), .keyword("init"),
+                 .keyword("subscript"), .operator("->", .infix):
                 return false
             default:
                 if let nextIndex = index(of: .nonSpaceOrCommentOrLinebreak, after: i),
@@ -389,7 +389,7 @@ extension Formatter {
                 }
             }
             fallthrough
-        case .identifier, .endOfScope("\""), .number:
+        case .endOfScope("\""), .identifier, .number:
             if let nextIndex = index(of: .nonSpaceOrCommentOrLinebreak, after: i),
                 isAccessorKeyword(at: nextIndex) || isAccessorKeyword(at: prevIndex)
             {
@@ -427,13 +427,13 @@ extension Formatter {
                     }
                 }
                 return false
-            case "func", "subscript", "class", "struct", "protocol", "enum", "extension", "throws":
+            case "class", "enum", "extension", "func", "protocol", "struct", "subscript", "throws":
                 return false
             default:
                 return true
             }
-        case .operator("?", .postfix), .operator("!", .postfix),
-             .keyword, .endOfScope("]"), .endOfScope(">"):
+        case .endOfScope("]"), .endOfScope(">"),
+             .keyword, .operator("?", .postfix), .operator("!", .postfix):
             return false
         default:
             return true
@@ -449,10 +449,10 @@ extension Formatter {
                     return false
                 }
                 return isStartOfClosure(at: scopeIndex)
-            case .startOfScope("("), .startOfScope("["), .startOfScope("<"),
-                 .endOfScope(")"), .endOfScope("]"), .endOfScope(">"):
+            case .endOfScope(")"), .endOfScope("]"), .endOfScope(">"),
+                 .startOfScope("("), .startOfScope("["), .startOfScope("<"):
                 break
-            case .keyword, .startOfScope, .endOfScope:
+            case .endOfScope, .keyword, .startOfScope:
                 return false
             default:
                 break
@@ -483,7 +483,7 @@ extension Formatter {
             return isAccessorKeyword(at: prevIndex)
         } else if tokens[prevIndex] == .startOfScope("{") {
             switch lastSignificantKeyword(at: prevIndex, excluding: ["where"]) {
-            case "var"?, "subscript"?:
+            case "subscript"?, "var"?:
                 return true
             default:
                 return false
@@ -524,7 +524,7 @@ extension Formatter {
             default:
                 return nil
             }
-        case "if", "guard", "while", "for", "case", "where", "switch":
+        case "case", "for", "guard", "if", "switch", "where", "while":
             return isAfterBrace(index) ? nil : index
         default:
             return nil
@@ -551,7 +551,7 @@ extension Formatter {
         case let name where
             name.hasPrefix("#") || name.hasPrefix("@") || excluding.contains(name):
             fallthrough
-        case "in", "as", "is", "try":
+        case "as", "in", "is", "try":
             return indexOfLastSignificantKeyword(at: index - 1, excluding: excluding)
         default:
             guard let braceIndex = self.index(of: .startOfScope("{"), in: index ..< i),
@@ -603,9 +603,9 @@ extension Formatter {
             // lazy, left, mutating, none, nonmutating, open, optional, override, postfix,
             // precedence, prefix, Protocol, required, right, set, Type, unowned, weak, willSet
             switch string {
-            case "let", "func", "var", "if", "as", "import", "try", "guard", "case",
-                 "for", "init", "switch", "throw", "where", "subscript", "is",
-                 "while", "associatedtype", "inout":
+            case "as", "associatedtype", "case", "for", "func", "guard", "if", "import", "init",
+                 "inout", "is", "let", "subscript", "switch", "throw", "try",
+                 "var", "where", "while":
                 return false
             case "in":
                 return lastSignificantKeyword(at: i) != "for"
@@ -614,7 +614,7 @@ extension Formatter {
                     return true
                 }
                 switch nextToken {
-                case .keyword, .endOfScope("case"), .endOfScope("default"):
+                case .endOfScope("case"), .endOfScope("default"), .keyword:
                     return true
                 default:
                     return false
@@ -711,9 +711,9 @@ extension Formatter {
             return false
         }
         switch prevToken {
-        case .identifier, .operator(_, .postfix),
-             .endOfScope("]"), .endOfScope(")"), .endOfScope("}"),
-             .endOfScope where prevToken.isStringDelimiter:
+        case .endOfScope("]"), .endOfScope(")"),
+             .endOfScope("}"), .endOfScope, .identifier,
+             .operator(_, .postfix) where prevToken.isStringDelimiter:
             return true
         default:
             return false
@@ -761,11 +761,11 @@ extension Formatter {
         let unescaped = token.unescaped()
         if !unescaped.isSwiftKeyword {
             switch unescaped {
-            case "super", "self", "nil", "true", "false":
+            case "false", "nil", "self", "super", "true":
                 if options.swiftVersion < "4" {
                     return true
                 }
-            case "Self", "Any":
+            case "Any", "Self":
                 if let prevToken = last(.nonSpaceOrCommentOrLinebreak, before: i),
                     [.delimiter(":"), .operator("->", .infix)].contains(prevToken)
                 {
@@ -781,7 +781,7 @@ extension Formatter {
                     return true
                 }
                 return false
-            case "get", "set", "willSet", "didSet":
+            case "didSet", "get", "set", "willSet":
                 return isAccessorKeyword(at: i, checkKeyword: false)
             default:
                 return false
@@ -823,7 +823,7 @@ extension Formatter {
     func isCommentedCode(at i: Int) -> Bool {
         if token(at: i) == .startOfScope("//"), token(at: i - 1)?.isSpace != true {
             switch token(at: i + 1) {
-            case nil, .linebreak?:
+            case .linebreak?, nil:
                 return true
             case let .space(space)? where space.hasPrefix(options.indent):
                 return true
@@ -980,8 +980,8 @@ extension Formatter {
             switch self {
             case let .declaration(_, tokens):
                 return tokens
-            case let .type(_, openTokens, bodyDeclarations, closeTokens),
-                 let .conditionalCompilation(openTokens, bodyDeclarations, closeTokens):
+            case let .conditionalCompilation(openTokens, bodyDeclarations, closeTokens),
+                 let .type(_, openTokens, bodyDeclarations, closeTokens):
                 return openTokens + bodyDeclarations.flatMap { $0.tokens } + closeTokens
             }
         }
@@ -991,8 +991,8 @@ extension Formatter {
             switch self {
             case .declaration:
                 return nil
-            case let .type(_, _, body, _),
-                 let .conditionalCompilation(_, body, _):
+            case let .conditionalCompilation(_, body, _),
+                 let .type(_, _, body, _):
                 return body
             }
         }
@@ -1037,7 +1037,7 @@ extension Formatter {
             var names = Set<String>()
             processDeclaredVariables(at: &index, names: &names, removeSelf: false)
             return names
-        case "func", "class", "struct", "enum":
+        case "class", "enum", "func", "struct":
             guard let name = next(.identifier, after: index) else {
                 return nil
             }

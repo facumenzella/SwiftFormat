@@ -214,7 +214,7 @@ private struct Inference {
                 return
             }
             switch token.string {
-            case "[", ":":
+            case ":", "[":
                 break // do nothing
             case ",":
                 trailing += 1
@@ -270,7 +270,7 @@ private struct Inference {
                 let prevToken = formatter.token(at: prevTokenIndex)
             {
                 switch prevToken {
-                case .identifier, .keyword, .endOfScope, .operator("?", .postfix), .operator("!", .postfix):
+                case .endOfScope, .identifier, .keyword, .operator("?", .postfix), .operator("!", .postfix):
                     knr += 1
                 case .linebreak:
                     allman += 1
@@ -496,7 +496,7 @@ private struct Inference {
                         return
                     }
                     hoisted += 1
-                case .keyword("case"), .endOfScope("case"), .delimiter(","):
+                case .delimiter(","), .endOfScope("case"), .keyword("case"):
                     if hoistable("let", in: i + 1 ..< endIndex) || hoistable("var", in: i + 1 ..< endIndex) {
                         unhoisted += 1
                     }
@@ -788,7 +788,7 @@ private struct Inference {
                             index = nextIndex
                         }
                         lastKeyword = ""
-                    case "if", "while", "guard":
+                    case "guard", "if", "while":
                         assert(!isTypeRoot)
                         // Guard is included because it's an error to reference guard vars in body
                         var scopedNames = localNames
@@ -1429,7 +1429,7 @@ private extension Formatter {
             let exp: String
             let grouping: Grouping
             switch type {
-            case .integer, .binary, .octal:
+            case .binary, .integer, .octal:
                 return
             case .hex:
                 exp = "pP"

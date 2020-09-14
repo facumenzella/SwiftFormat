@@ -53,10 +53,10 @@ public enum FormatError: Error, CustomStringConvertible, LocalizedError, CustomN
 
     public var description: String {
         switch self {
-        case let .reading(string),
-             let .writing(string),
+        case let .options(string),
              let .parsing(string),
-             let .options(string):
+             let .reading(string),
+             let .writing(string):
             return string
         }
     }

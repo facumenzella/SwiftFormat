@@ -2422,7 +2422,7 @@ extension RulesTests {
             }
         }
         """
-        testFormatting(for: input, output, rule: FormatRules.wrapSwitchCases)
+        testFormatting(for: input, output, rule: FormatRules.wrapSwitchCases, exclude: ["sortedSwitchCases"])
     }
 
     func testIfAfterSwitchCaseNotWrapped() {

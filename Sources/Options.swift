@@ -142,7 +142,7 @@ public enum HeaderStrippingMode: Equatable, RawRepresentable, ExpressibleByStrin
         switch rawValue.lowercased() {
         case "ignore", "keep", "preserve":
             self = .ignore
-        case "strip", "":
+        case "", "strip":
             self = .replace("")
         default:
             // Normalize the header

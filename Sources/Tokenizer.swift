@@ -141,31 +141,31 @@ private extension Token {
     /// Test if token matchs type of another token
     func hasType(of token: Token) -> Bool {
         switch (self, token) {
-        case (.number, .number),
-             (.operator, .operator),
-             (.linebreak, .linebreak),
-             (.startOfScope, .startOfScope),
-             (.endOfScope, .endOfScope),
+        case (.commentBody, .commentBody),
              (.delimiter, .delimiter),
-             (.keyword, .keyword),
+             (.endOfScope, .endOfScope),
+             (.error, .error),
              (.identifier, .identifier),
-             (.stringBody, .stringBody),
-             (.commentBody, .commentBody),
+             (.keyword, .keyword),
+             (.linebreak, .linebreak),
+             (.number, .number),
+             (.operator, .operator),
              (.space, .space),
-             (.error, .error):
+             (.startOfScope, .startOfScope),
+             (.stringBody, .stringBody):
             return true
-        case (.number, _),
-             (.operator, _),
-             (.linebreak, _),
-             (.startOfScope, _),
-             (.endOfScope, _),
+        case (.commentBody, _),
              (.delimiter, _),
-             (.keyword, _),
+             (.endOfScope, _),
+             (.error, _),
              (.identifier, _),
-             (.stringBody, _),
-             (.commentBody, _),
+             (.keyword, _),
+             (.linebreak, _),
+             (.number, _),
+             (.operator, _),
              (.space, _),
-             (.error, _):
+             (.startOfScope, _),
+             (.stringBody, _):
             return false
         }
     }
@@ -177,7 +177,7 @@ private extension Token {
 
     var stringDelimiterType: StringDelimiterType? {
         switch self {
-        case let .startOfScope(string), let .endOfScope(string):
+        case let .endOfScope(string), let .startOfScope(string):
             var quoteCount = 0, hashCount = 0
             for c in string {
                 switch c {
@@ -201,18 +201,18 @@ public extension Token {
     /// The original token string
     var string: String {
         switch self {
-        case let .number(string, _),
-             let .linebreak(string, _),
-             let .startOfScope(string),
-             let .endOfScope(string),
+        case let .commentBody(string),
              let .delimiter(string),
-             let .operator(string, _),
-             let .stringBody(string),
-             let .keyword(string),
+             let .endOfScope(string),
+             let .error(string),
              let .identifier(string),
+             let .keyword(string),
+             let .linebreak(string, _),
+             let .number(string, _),
+             let .operator(string, _),
              let .space(string),
-             let .commentBody(string),
-             let .error(string):
+             let .startOfScope(string),
+             let .stringBody(string):
             return string
         }
     }
@@ -220,7 +220,7 @@ public extension Token {
     /// Returns the width (in characters) of the token
     func columnWidth(tabWidth: Int) -> Int {
         switch self {
-        case let .space(string), let .stringBody(string), let .commentBody(string):
+        case let .commentBody(string), let .space(string), let .stringBody(string):
             guard tabWidth > 1 else {
                 return string.count
             }
@@ -394,9 +394,9 @@ public extension Token {
     var isComment: Bool {
         switch self {
         case .commentBody,
+             .endOfScope("*/"),
              .startOfScope("//"),
-             .startOfScope("/*"),
-             .endOfScope("*/"):
+             .startOfScope("/*"):
             return true
         default:
             return false
@@ -414,7 +414,7 @@ public extension Token {
 
     var isStringDelimiter: Bool {
         switch self {
-        case let .startOfScope(string), let .endOfScope(string):
+        case let .endOfScope(string), let .startOfScope(string):
             return string.contains("\"")
         default:
             return false
@@ -438,9 +438,9 @@ public extension Token {
                 return closing == "]"
             case "<":
                 return closing == ">"
-            case "{", ":":
+            case ":", "{":
                 switch closing {
-                case "}", "case", "default":
+                case "case", "default", "}":
                     return true
                 default:
                     return false
@@ -480,10 +480,10 @@ public extension Token {
 extension Token {
     var isLvalue: Bool {
         switch self {
-        case .identifier, .number, .operator(_, .postfix),
-             .endOfScope(")"), .endOfScope("]"),
-             .endOfScope("}"), .endOfScope(">"),
-             .endOfScope("\""), .endOfScope("\"\"\""):
+        case .endOfScope(")"), .endOfScope("]"), .endOfScope("}"),
+             .endOfScope(">"), .endOfScope("\""),
+             .endOfScope("\"\"\""), .identifier,
+             .number, .operator(_, .postfix):
             return true
         case let .keyword(name) where name.hasPrefix("#"):
             return true
@@ -769,9 +769,9 @@ private extension UnicodeScalarView {
             case 0x0300 ... 0x036F,
                  0x1DC0 ... 0x1DFF,
                  0x20D0 ... 0x20FF,
+                 0xE0100 ... 0xE01EF,
                  0xFE00 ... 0xFE0F,
-                 0xFE20 ... 0xFE2F,
-                 0xE0100 ... 0xE01EF:
+                 0xFE20 ... 0xFE2F:
                 return true
             default:
                 return c == ">"
@@ -781,7 +781,7 @@ private extension UnicodeScalarView {
         var start = self
         if var tail = readCharacter(where: isHead) {
             switch tail {
-            case "?", "!":
+            case "!", "?":
                 return .operator(String(tail), .none)
             case "/":
                 break
@@ -824,21 +824,19 @@ private extension UnicodeScalarView {
     mutating func parseIdentifier() -> Token? {
         func isHead(_ c: UnicodeScalar) -> Bool {
             switch c.value {
-            case 0x41 ... 0x5A, // A-Z
-                 0x61 ... 0x7A, // a-z
-                 0x5F, 0x24, // _ and $
-                 0x00A8, 0x00AA, 0x00AD, 0x00AF,
-                 0x00B2 ... 0x00B5,
-                 0x00B7 ... 0x00BA,
-                 0x00BC ... 0x00BE,
-                 0x00C0 ... 0x00D6,
+            case 0x00A8, // A-Z
+                 0x00AA, // a-z
+                 0x00AD, 0x00AF, // _ and $
+                 0x00B2 ... 0x00B5, 0x00B7 ... 0x00BA, 0x00BC ... 0x00BE, 0x00C0 ... 0x00D6,
                  0x00D8 ... 0x00F6,
                  0x00F8 ... 0x00FF,
                  0x0100 ... 0x02FF,
                  0x0370 ... 0x167F,
+                 0x10000 ... 0x1FFFD,
                  0x1681 ... 0x180D,
                  0x180F ... 0x1DBF,
                  0x1E00 ... 0x1FFF,
+                 0x20000 ... 0x2FFFD,
                  0x200B ... 0x200D,
                  0x202A ... 0x202E,
                  0x203F ... 0x2040,
@@ -846,25 +844,22 @@ private extension UnicodeScalarView {
                  0x2060 ... 0x206F,
                  0x2070 ... 0x20CF,
                  0x2100 ... 0x218F,
+                 0x24,
                  0x2460 ... 0x24FF,
                  0x2776 ... 0x2793,
                  0x2C00 ... 0x2DFF,
                  0x2E80 ... 0x2FFF,
+                 0x30000 ... 0x3FFFD,
                  0x3004 ... 0x3007,
                  0x3021 ... 0x302F,
                  0x3031 ... 0x303F,
                  0x3040 ... 0xD7FF,
-                 0xF900 ... 0xFD3D,
-                 0xFD40 ... 0xFDCF,
-                 0xFDF0 ... 0xFE1F,
-                 0xFE30 ... 0xFE44,
-                 0xFE47 ... 0xFFFD,
-                 0x10000 ... 0x1FFFD,
-                 0x20000 ... 0x2FFFD,
-                 0x30000 ... 0x3FFFD,
                  0x40000 ... 0x4FFFD,
+                 0x41 ... 0x5A,
                  0x50000 ... 0x5FFFD,
+                 0x5F,
                  0x60000 ... 0x6FFFD,
+                 0x61 ... 0x7A,
                  0x70000 ... 0x7FFFD,
                  0x80000 ... 0x8FFFD,
                  0x90000 ... 0x9FFFD,
@@ -872,7 +867,12 @@ private extension UnicodeScalarView {
                  0xB0000 ... 0xBFFFD,
                  0xC0000 ... 0xCFFFD,
                  0xD0000 ... 0xDFFFD,
-                 0xE0000 ... 0xEFFFD:
+                 0xE0000 ... 0xEFFFD,
+                 0xF900 ... 0xFD3D,
+                 0xFD40 ... 0xFDCF,
+                 0xFDF0 ... 0xFE1F,
+                 0xFE30 ... 0xFE44,
+                 0xFE47 ... 0xFFFD:
                 return true
             default:
                 return false
@@ -881,10 +881,10 @@ private extension UnicodeScalarView {
 
         func isTail(_ c: UnicodeScalar) -> Bool {
             switch c.value {
-            case 0x30 ... 0x39, // 0-9
-                 0x0300 ... 0x036F,
+            case 0x0300 ... 0x036F, // 0-9
                  0x1DC0 ... 0x1DFF,
                  0x20D0 ... 0x20FF,
+                 0x30 ... 0x39,
                  0xFE20 ... 0xFE2F:
                 return true
             default:
@@ -1147,7 +1147,7 @@ public func tokenize(_ source: String) -> [Token] {
                 scopeIndexStack.append(tokens.count)
                 tokens.append(.startOfScope("("))
                 return
-            case "\r", "\n":
+            case "\n", "\r":
                 if string != "" {
                     tokens.append(.stringBody(string))
                     string = ""
@@ -1244,7 +1244,7 @@ public func tokenize(_ source: String) -> [Token] {
                     switch tokens[index + 1] {
                     case let .commentBody(body):
                         tokens[index + 1] = .commentBody(indent.dropFirst(baseIndent.count) + body)
-                    case .startOfScope("/*"), .endOfScope("*/"):
+                    case .endOfScope("*/"), .startOfScope("/*"):
                         if indent.count > baseIndent.count {
                             tokens.insert(.commentBody(String(indent.dropFirst(baseIndent.count))),
                                           at: index + 1)
@@ -1391,7 +1391,7 @@ public func tokenize(_ source: String) -> [Token] {
         let prevToken: Token = tokens[i - 1]
         let type: OperatorType
         switch string {
-        case ":", "=", "->":
+        case "->", ":", "=":
             type = .infix
         case ".":
             type = prevNonSpaceToken.isLvalue ? .infix : .prefix
@@ -1532,7 +1532,7 @@ public func tokenize(_ source: String) -> [Token] {
                     else {
                         fallthrough
                     }
-                case .operator, .identifier, .number, .startOfScope("\""), .startOfScope("\"\"\""):
+                case .identifier, .number, .operator, .startOfScope("\""), .startOfScope("\"\"\""):
                     convertClosingChevronToOperator(at: prevIndex, andOpeningChevron: true)
                     processToken()
                     return
@@ -1591,7 +1591,7 @@ public func tokenize(_ source: String) -> [Token] {
                 switch token {
                 case let .operator(string, _):
                     switch string {
-                    case ".", "==", "?", "!", "&", "->":
+                    case "!", "&", "->", ".", "==", "?":
                         if index(of: .nonSpaceOrCommentOrLinebreak, before: count - 1) == scopeIndex {
                             // These are allowed in a generic, but not as the first character
                             fallthrough
@@ -1658,11 +1658,11 @@ public func tokenize(_ source: String) -> [Token] {
                         }
                         if let prevIndex = index(of: .nonSpaceOrCommentOrLinebreak, before: count - 1) {
                             switch tokens[prevIndex] {
-                            case .keyword("if"),
+                            case .delimiter(","),
+                                 .keyword("if"),
                                  .keyword("guard"),
                                  .keyword("while"),
-                                 .keyword("for"),
-                                 .delimiter(","):
+                                 .keyword("for"):
                                 break
                             default:
                                 tokens[tokens.count - 1] = .endOfScope(string)

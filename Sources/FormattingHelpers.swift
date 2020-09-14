@@ -282,7 +282,7 @@ extension Formatter {
                     wrapArgumentsAfterFirst(startOfScope: i,
                                             endOfScope: endOfScope,
                                             allowGrouping: true)
-                case .disabled, .default:
+                case .default, .disabled:
                     assertionFailure() // Shouldn't happen
                 }
 
@@ -329,7 +329,7 @@ extension Formatter {
 
                 func wrapArgumentsWithoutPartialWrapping() {
                     switch mode {
-                    case .preserve, .beforeFirst:
+                    case .beforeFirst, .preserve:
                         wrapArgumentsBeforeFirst(startOfScope: i,
                                                  endOfScope: endOfScope,
                                                  allowGrouping: false,
@@ -338,7 +338,7 @@ extension Formatter {
                         wrapArgumentsAfterFirst(startOfScope: i,
                                                 endOfScope: endOfScope,
                                                 allowGrouping: true)
-                    case .disabled, .default:
+                    case .default, .disabled:
                         assertionFailure() // Shouldn't happen
                     }
                 }
@@ -376,7 +376,7 @@ extension Formatter {
         func tokenInsideParenRequiresSpacing(at index: Int) -> Bool {
             guard let token = self.token(at: index) else { return false }
             switch token {
-            case .operator, .startOfScope("{"), .endOfScope("}"):
+            case .endOfScope("}"), .operator, .startOfScope("{"):
                 return true
             default:
                 return tokenOutsideParenRequiresSpacing(at: index)
@@ -675,7 +675,7 @@ private extension Formatter {
             switch declaration {
             case let .declaration(_, tokens):
                 tokensToInspect = tokens
-            case let .type(_, open, _, _), let .conditionalCompilation(open, _, _):
+            case let .conditionalCompilation(open, _, _), let .type(_, open, _, _):
                 // Only inspect the opening tokens of declarations with a body
                 tokensToInspect = open
             }

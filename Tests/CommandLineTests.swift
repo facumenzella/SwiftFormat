@@ -41,7 +41,7 @@ class CommandLineTests: XCTestCase {
     func testStdin() {
         CLI.print = { message, type in
             switch type {
-            case .raw, .content:
+            case .content, .raw:
                 XCTAssertEqual(message, "func foo() {\n    bar()\n}\n")
             case .error, .warning:
                 XCTFail()

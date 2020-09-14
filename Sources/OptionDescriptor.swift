@@ -327,7 +327,7 @@ struct _Descriptors {
         keyPath: \.indent,
         fromArgument: { arg in
             switch arg.lowercased() {
-            case "tab", "tabs", "tabbed":
+            case "tab", "tabbed", "tabs":
                 return "\t"
             default:
                 return Int(arg).flatMap { $0 > 0 ? String(repeating: " ", count: $0) : nil }
@@ -617,7 +617,7 @@ struct _Descriptors {
         keyPath: \FormatOptions.noWrapOperators,
         validate: {
             switch $0 {
-            case ":", ";", "is", "as", "as!", "as?":
+            case ":", ";", "as", "as!", "as?", "is":
                 break
             case _ where !$0.isOperator:
                 throw FormatError.options("'\($0)' is not a valid infix operator")

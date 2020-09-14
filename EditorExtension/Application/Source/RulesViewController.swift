@@ -156,7 +156,7 @@ final class RulesViewController: NSViewController {
                             )
                             return UserSelectionType.list(list)
 
-                        case .text, .int, .set, .array:
+                        case .array, .int, .set, .text:
                             let freeText = UserSelectionFreeText(
                                 identifier: descriptor.argumentName,
                                 title: descriptor.displayName,
@@ -252,7 +252,7 @@ extension RulesViewController: NSTableViewDelegate {
         switch model(forRow: row) {
         case .binary:
             rowView.backgroundColor = NSColor.controlAlternatingRowBackgroundColors[1]
-        case .list, .freeText:
+        case .freeText, .list:
             rowView.backgroundColor = NSColor.controlAlternatingRowBackgroundColors[0]
         }
     }
